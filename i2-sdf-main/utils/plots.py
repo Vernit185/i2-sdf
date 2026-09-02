@@ -1,14 +1,26 @@
-import plotly.graph_objs as go
-import plotly.offline as offline
-from plotly.subplots import make_subplots
+try:
+    import plotly.graph_objs as go
+    import plotly.offline as offline
+    from plotly.subplots import make_subplots
+except ImportError:
+    pass
 import numpy as np
 import torch
 from skimage import measure
-import torchvision.utils as vutils
-import trimesh
-from PIL import Image
-import cv2
-import mcubes
+try:
+    import torchvision.utils as vutils
+except ImportError:
+    pass
+try:
+    import trimesh
+    from PIL import Image
+    import cv2
+except ImportError:
+    pass
+try:
+    import mcubes
+except ImportError:
+    pass
 from utils import rend_util
 
 

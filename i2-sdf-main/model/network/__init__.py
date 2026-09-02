@@ -10,7 +10,7 @@ from model.network.density import LaplaceDensity, AbsDensity
 from model.network.ray_sampler import ErrorBoundSampler
 from fast_pytorch_kmeans import KMeans
 from sklearn.cluster import DBSCAN
-
+import model.physics
 
 """
 For modeling more complex backgrounds, we follow the inverted sphere parametrization from NeRF++ 
@@ -297,7 +297,7 @@ class I2SDFNetwork(nn.Module):
 
 
 class I2SDFLoss(nn.Module):
-    def __init__(self, eikonal_weight=0.1, smooth_weight=0.0, mask_weight=0.0, depth_weight=0.1, normal_weight=0.05, angular_weight=0.05, bubble_weight=0.0, min_bubble_iter=0, max_bubble_iter=None, smooth_iter=None, light_mask_weight=0.0, eikonal_weight_bubble=0.0, ground_weight=0.0):
+    def __init__(self, eikonal_weight=0.1, smooth_weight=0.0, mask_weight=0.0, depth_weight=0.1, normal_weight=0.05, angular_weight=0.05, bubble_weight=0.0, min_bubble_iter=0, max_bubble_iter=None, smooth_iter=None, light_mask_weight=0.0, eikonal_weight_bubble=0.0, ground_weight=0.0, ground_beta=10.0):
         super().__init__()
         self.eikonal_weight = eikonal_weight
         self.rgb_loss = F.l1_loss
@@ -318,6 +318,7 @@ class I2SDFLoss(nn.Module):
         # Physics-guided grounding loss
         # OUR RESEARCH EXTENSION
         self.ground_weight = ground_weight
+        self.ground_beta = ground_beta
 
     def get_rgb_loss(self, rgb_values, rgb_gt):
         rgb_gt = rgb_gt.reshape(-1, 3)
@@ -348,26 +349,6 @@ class I2SDFLoss(nn.Module):
         dot = torch.sum(normal[normal_mask] * normal_gt[normal_mask], dim=-1)
         angle = torch.acos(torch.clamp(dot, -1.0+1e-6, 1.0-1e-6)) / math.tau
         return angle.clamp_max(0.5).abs().mean()
-
-    # Physics-guided grounding loss
-    # OUR RESEARCH EXTENSION
-    def get_ground_loss(self, ground_sdf, num_candidates=None, num_samples_per_col=None, beta=10.0):
-        """
-        Calculates a differentiable penalty for candidate geometry floating above the floor.
-        For each candidate point with K probe points along the downward column:
-        If all points along the column have SDF > 0 (empty air), soft_min > 0, incurring a penalty.
-        """
-        if ground_sdf.dim() == 2 and ground_sdf.shape[1] == 1:
-            if num_candidates is not None and num_samples_per_col is not None:
-                ground_sdf = ground_sdf.view(num_candidates, num_samples_per_col)
-            else:
-                ground_sdf = ground_sdf.view(-1)
-                return (F.relu(ground_sdf) ** 2).mean()
-
-        # Numerically stable soft minimum along vertical column dimension using logsumexp
-        soft_min = -(1.0 / beta) * torch.logsumexp(-beta * ground_sdf, dim=-1)
-        ground_loss = (F.relu(soft_min) ** 2).mean()
-        return ground_loss
 
     def forward(self, model_outputs, ground_truth, current_step):
         rgb_gt = ground_truth['rgb']
@@ -419,7 +400,7 @@ class I2SDFLoss(nn.Module):
         if 'ground_sdf' in model_outputs and self.ground_weight > 0:
             num_cand = model_outputs.get('num_ground_candidates', None)
             num_k = model_outputs.get('num_ground_samples_per_col', None)
-            ground_loss = self.get_ground_loss(model_outputs['ground_sdf'], num_cand, num_k)
+            ground_loss = model.physics.compute_grounding_loss(model_outputs['ground_sdf'], num_cand, num_k, beta=self.ground_beta)
         else:
             ground_loss = torch.tensor(0.0, device=model_outputs['rgb_values'].device).float()
 

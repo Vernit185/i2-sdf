@@ -11,6 +11,7 @@ from utils import rend_util
 import utils.plots as plt
 import dataset
 import model
+import model.physics
 from tqdm import trange
 from pytorch_lightning.callbacks import RichProgressBar
 from torchmetrics.functional import structural_similarity_index_measure as ssim
@@ -256,24 +257,18 @@ class ReconstructionTrainer(pl.LightningModule):
         # Physics-guided grounding loss
         # OUR RESEARCH EXTENSION
         if getattr(self.loss, 'ground_weight', 0.0) > 0:
-            B = 128  # number of candidate surface points
-            K = 16   # number of vertical samples per column
+            B = getattr(self.conf.loss, 'num_ground_candidates', 128)
+            K = getattr(self.conf.loss, 'num_ground_samples_per_col', 16)
             device = model_input['pose'].device
 
             # Initialize vertical axis and floor height if not yet computed
             if self.v_up is None:
-                cams_up = -self.train_dataset.pose_all[:, :3, 1].to(device)
-                self.v_up = F.normalize(cams_up.mean(dim=0), dim=0)
+                pc = None
                 if self.pc_ground_cache is not None:
-                    pc_cuda = self.pc_ground_cache.to(device)
-                    pc_heights = torch.matmul(pc_cuda, self.v_up)
-                    self.h_floor = torch.quantile(pc_heights, 0.01)
+                    pc = self.pc_ground_cache
                 elif hasattr(self.train_dataset, 'pointcloud') and isinstance(self.train_dataset.pointcloud, torch.Tensor) and self.train_dataset.pointcloud.numel() > 0:
-                    pc_cuda = self.train_dataset.pointcloud[:, :3].to(device)
-                    pc_heights = torch.matmul(pc_cuda, self.v_up)
-                    self.h_floor = torch.quantile(pc_heights, 0.01)
-                else:
-                    self.h_floor = torch.tensor(-1.0, device=device)
+                    pc = self.train_dataset.pointcloud
+                self.v_up, self.h_floor = model.physics.estimate_floor_reference(self.train_dataset.pose_all.to(device), pc, device=device)
 
             # Sample B candidate surface points
             if self.pc_ground_cache is not None and len(self.pc_ground_cache) >= B:
@@ -285,16 +280,11 @@ class ReconstructionTrainer(pl.LightningModule):
             else:
                 cand_pts = torch.empty(B, 3, device=device).uniform_(-self.model.scene_bounding_sphere, self.model.scene_bounding_sphere)
 
-            # Height of each candidate point above estimated floor along vertical axis
-            cand_h = torch.matmul(cand_pts, self.v_up)
-            height_above_floor = (cand_h - self.h_floor).clamp(min=1e-3)
+            range_min = getattr(self.conf.loss, 'ground_range_min', 0.05)
+            range_max = getattr(self.conf.loss, 'ground_range_max', 0.95)
+            ground_probe = model.physics.generate_ground_probe_points(cand_pts, self.v_up, self.h_floor, K, range_min, range_max)
 
-            # Sample K vertical points along downward column towards floor
-            t = torch.linspace(0.05, 0.95, K, device=device).view(1, K, 1)
-            v_down = -self.v_up.view(1, 1, 3)
-            ground_probe = cand_pts.unsqueeze(1) + t * (height_above_floor.view(B, 1, 1) * v_down)
-
-            model_input['ground_points'] = ground_probe.reshape(-1, 3)
+            model_input['ground_points'] = ground_probe
             model_input['num_ground_candidates'] = B
             model_input['num_ground_samples_per_col'] = K
 
@@ -343,6 +333,7 @@ class ReconstructionTrainer(pl.LightningModule):
             self.log_if_nonzero('train/bubble_loss', loss_output['bubble_loss'].item())
             self.log_if_nonzero('train/light_mask_loss', loss_output['light_mask_loss'].item())
             self.log_if_nonzero('train/ground_loss', loss_output['ground_loss'].item())
+            self.log_if_nonzero('train/ground_weight', getattr(self.loss, 'ground_weight', 0.0))
             self.log('train/beta', self.model.density.beta.item())
 
         return loss

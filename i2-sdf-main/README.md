@@ -17,9 +17,30 @@ The original dataset download link via MEGA cloud storage is no longer valid. Th
 **Dataset released**
 
 - Synthetic: `kitchen_0`, `bedroom_relight_0`, `bedroom_0`, `bedroom_1`, `bedroom_relight_1`, `diningroom_0`, `livingroom_0`, `livingroom_1`, more scenes to be released
-- Real: `inria_livingroom`, `nisr_livingroom`, `nisr_coffee_shop_0`, `nisr_coffee_shop_1`, release complete
+- Real: `inria_livingroom`, `nisr_livingroom`, `nisr_coffee_shop_0`, `nisr_coffee_shop_1`, release
 
-# I<sup>2</sup>-SDF: Intrinsic Indoor Scene Reconstruction and Editing via Raytracing in Neural SDFs (CVPR 2023)
+# Physics-Aware Optimization of Unified Neural Signed Distance Fields for 3D Indoor Scene Reconstruction
+
+This repository extends the original I²-SDF codebase with a differentiable physics-guided grounding constraint. It allows for end-to-end physics-aware optimization of the neural SDF.
+
+## Google Colab / Kaggle Execution
+
+The most reproducible way to execute this pipeline is via the included Google Colab notebook:
+`colab_i2sdf_physics.ipynb`
+
+This notebook provides a complete staged experiment workflow:
+1. GPU Verification
+2. Environment Setup (PyTorch Lightning, Open3D, etc.)
+3. Dataset Download (Kujiale `bedroom_0`)
+4. Optional Sanity Test (20-iteration proof of concept)
+5. Baseline Experiment (`ground_weight=0.0`)
+6. Physics Experiment (`ground_weight=0.1`)
+
+**Note:** The baseline and physics experiments require explicit confirmation (`RUN_BASELINE = True` / `RUN_PHYSICS = True`) before executing long-running steps.
+
+---
+
+## Original I²-SDF Documentation
 
 ### [Project Page](https://jingsenzhu.github.io/i2-sdf/) | [Paper](https://arxiv.org/abs/2303.07634) | [Dataset](i2-sdf-dataset-links.csv)
 

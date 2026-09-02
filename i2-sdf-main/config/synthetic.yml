@@ -21,6 +21,7 @@ loss:
     bubble_weight: 0.5
     min_bubble_iter: 50000
     max_bubble_iter: 150000
+    ground_weight: 0.0 # Baseline: explicit weight of 0
 
 dataset:
     data_dir: synthetic

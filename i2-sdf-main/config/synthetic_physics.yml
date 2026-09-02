@@ -22,6 +22,9 @@ loss:
     min_bubble_iter: 50000
     max_bubble_iter: 150000
     ground_weight: 0.1
+    ground_beta: 10.0
+    num_ground_candidates: 128
+    num_ground_samples_per_col: 16
 
 dataset:
     data_dir: synthetic
