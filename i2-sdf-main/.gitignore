@@ -1,0 +1,57 @@
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+*.env
+
+# Large datasets & raw downloads
+data/synthetic/
+data/real/
+data/scan*/
+data/*/**
+!data/normalize_cameras.py
+!data/npz_to_blender.py
+*.zip
+*.tar
+*.tar.gz
+*.7z
+*.exr
+*.npz
+
+# Experiments, checkpoints, logs, and meshes
+exps/
+lightning_logs/
+checkpoints/
+*.ckpt
+*.pt
+*.pth
+*.ply
+*.obj
+*.html
+
+# Python cache & build artifacts
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# IDE & OS files
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+
+# Temporary / Scratch files
+archive/
+tmp*
+scratch/
